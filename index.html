@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bakla Token Creator - One-Click BEP-20 Deploy</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@4.1.1/dist/web3.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -18,7 +18,7 @@
             <p id="account"></p>
         </div>
         
-        <div id="network-section" style="display: none;">
+        <div id="network-section">
             <label>Network: </label>
             <select id="networkSelect">
                 <option value="testnet">BSC Testnet (Free)</option>
@@ -26,7 +26,7 @@
             </select>
         </div>
         
-        <form id="tokenForm" style="display: none;">
+        <form id="tokenForm">
             <input type="text" id="name" placeholder="Token Name (e.g. Bakla)" required>
             <input type="text" id="symbol" placeholder="Symbol (e.g. BKL)" required maxlength="10">
             <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
@@ -40,7 +40,7 @@
             <button type="submit" id="deployBtn">🚀 Deploy Now!</button>
         </form>
         
-        <div id="result" style="display: none;"></div>
+        <div id="result"></div>
     </div>
     
     <script src="script.js"></script>
