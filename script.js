@@ -22,13 +22,16 @@ let contractData;
 
 // Load contract ABI and Bytecode
 fetch('contract.json')
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error('Failed to fetch contract.json');
+        return response.json();
+    })
     .then(data => {
         contractData = data;
     })
     .catch(error => {
         console.error('Failed to load contract.json:', error);
-        document.getElementById('result').innerText = 'Error: Failed to load contract data.';
+        document.getElementById('result').innerText = 'Error: Failed to load contract data. Please refresh.';
     });
 
 // Connect wallet
@@ -76,8 +79,10 @@ async function connectWallet() {
                 document.getElementById('connectBtn').disabled = true;
             } catch (metaMaskError) {
                 console.error('MetaMask fallback failed:', metaMaskError);
-                document.getElementById('result').innerText = `MetaMask connection failed: ${metaMaskError.message}`;
+                document.getElementById('result').innerText = `MetaMask connection failed: Please install or enable MetaMask.`;
             }
+        } else {
+            document.getElementById('result').innerText = 'MetaMask not detected. Please install MetaMask or use WalletConnect.';
         }
     }
 }
