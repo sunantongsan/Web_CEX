@@ -3,37 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bakla Token Creator - Deploy Token</title>
+    <title>Bakla Token Creator - One-Click BEP-20</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/web3@4.1.1/dist/web3.min.js"></script>
-    <script src="https://unpkg.com/@web3modal/ethers@3.0.0/dist/index.js"></script>
+    <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://unpkg.com/@web3modal/standalone@2.4.1/dist/index.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Confirm Token Deployment</h1>
-        <p>Review your token details and deploy your BEP-20 token.</p>
+        <h1>🚀 Bakla Token Creator</h1>
+        <p>Create BEP-20 token in one click! Fill basics, deploy, get contract address.</p>
+        <p style="color: yellow;">*DYOR: Team not responsible for token usage. Testnet for free testing.</p>
+        
         <div id="connect-wallet" class="wallet-section">
             <button id="connectBtn">Connect Wallet</button>
             <p id="account">Wallet not connected</p>
         </div>
-        <div id="token-details">
-            <h3>Token Details</h3>
-            <p><strong>Name:</strong> <span id="tokenName"></span></p>
-            <p><strong>Symbol:</strong> <span id="tokenSymbol"></span></p>
-            <p><strong>Total Supply:</strong> <span id="tokenSupply"></span></p>
-            <p><strong>Network:</strong> <span id="tokenNetwork"></span></p>
-            <p><strong>Logo:</strong></p>
-            <img id="tokenLogo" style="max-width: 100px; border-radius: 50%;">
+        
+        <div id="network-section">
+            <label>Network: </label>
+            <select id="networkSelect">
+                <option value="testnet">BSC Testnet (Free)</option>
+                <option value="mainnet">BSC Mainnet (Live)</option>
+            </select>
         </div>
-        <div id="fee-details">
-            <h3>Estimated Fees</h3>
-            <p><strong>Service Fee:</strong> 0.1 BNB</p>
-            <p><strong>Estimated Gas Fee:</strong> <span id="gasFee">Calculating...</span></p>
-            <p><strong>Total:</strong> <span id="totalFee">Calculating...</span></p>
-        </div>
-        <button id="deployBtn">🚀 Deploy Now!</button>
+        
+        <form id="tokenForm">
+            <input type="text" id="name" placeholder="Token Name (e.g. Bakla)" required>
+            <input type="text" id="symbol" placeholder="Symbol (e.g. BKL)" required maxlength="10">
+            <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
+            <label>Token Logo (PNG/JPG, <100KB):</label>
+            <input type="file" id="logo" accept="image/png,image/jpeg" required>
+            <img id="logoPreview" style="max-width: 100px; display: none; border-radius: 50%; margin: 10px 0;">
+            <small style="color: #ccc;">Recommended: 128x128 px, <100KB for fast upload</small>
+            <button type="submit" id="nextBtn">Next</button>
+        </form>
         <div id="result"></div>
-        <a href="index.html" class="back-btn">Back to Edit</a>
     </div>
     
     <script src="script.js"></script>
