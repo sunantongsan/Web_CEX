@@ -3,44 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bakla Token Creator - Create BEP-20 Tokens Easily!</title>
+    <title>Bakla Token Creator - One-Click BEP-20 Deploy</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>🚀 Bakla Token Creator</h1>
-        <p>Create BEP-20 tokens on BSC for just 0.1 BNB service fee + your own gas (~0.01 BNB)</p>
-        <p style="color: yellow;">*DYOR: Team is not responsible for any token usage damages</p>
+        <p>Create BEP-20 token in one click! Fill basics, deploy, get contract address instantly.</p>
+        <p style="color: yellow;">*DYOR: Team not responsible for token usage. Testnet for free testing.</p>
         
         <div id="connect-wallet" class="wallet-section">
             <button id="connectBtn">Connect Wallet (MetaMask)</button>
             <p id="account"></p>
         </div>
         
-        <div id="network-section">
+        <div id="network-section" style="display: none;">
             <label>Network: </label>
             <select id="networkSelect">
-                <option value="testnet">BSC Testnet (Free Testing)</option>
+                <option value="testnet">BSC Testnet (Free)</option>
                 <option value="mainnet">BSC Mainnet (Live)</option>
             </select>
         </div>
         
-        <form id="tokenForm">
+        <form id="tokenForm" style="display: none;">
             <input type="text" id="name" placeholder="Token Name (e.g. Bakla)" required>
             <input type="text" id="symbol" placeholder="Symbol (e.g. BKL)" required maxlength="10">
             <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
-            <input type="number" id="decimals" placeholder="Decimals (18)" value="18" required>
             
             <label>Token Logo (PNG/JPG, <100KB):</label>
             <input type="file" id="logo" accept="image/png,image/jpeg" required>
             <img id="logoPreview" style="max-width: 100px; display: none; border-radius: 50%; margin: 10px 0;">
+            <small style="color: #ccc;">Recommended: 128x128 px, <100KB for fast upload</small>
             
-            <p style="color: lightgreen;">Service Fee: 0.1 BNB + Gas Fee</p>
-            <button type="submit">Deploy Token!</button>
+            <p style="color: lightgreen;">Service Fee: 0.1 BNB + Gas (~0.01 BNB)</p>
+            <button type="submit" id="deployBtn">🚀 Deploy Now!</button>
         </form>
         
-        <div id="result"></div>
+        <div id="result" style="display: none;"></div>
     </div>
     
     <script src="script.js"></script>
