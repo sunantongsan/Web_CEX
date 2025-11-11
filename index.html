@@ -1,34 +1,42 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bakla Token Creator - สร้างเหรียญ BEP-20 ถูกสุด!</title>
+    <title>Bakla Token Creator - Create BEP-20 Tokens Easily!</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>🚀 Bakla Token Creator</h1>
-        <p>สร้างเหรียญ BEP-20 บน BSC ค่าบริการแค่ 0.1 BNB + จ่าย gas เอง (~0.01 BNB)</p>
-        <p style="color: yellow;">*DYOR: ทีมไม่รับผิดชอบความเสียหายจากการใช้โทเค็น</p>
+        <p>Create BEP-20 tokens on BSC for just 0.1 BNB service fee + your own gas (~0.01 BNB)</p>
+        <p style="color: yellow;">*DYOR: Team is not responsible for any token usage damages</p>
         
         <div id="connect-wallet" class="wallet-section">
-            <button id="connectBtn">เชื่อม Wallet (MetaMask)</button>
+            <button id="connectBtn">Connect Wallet (MetaMask)</button>
             <p id="account"></p>
         </div>
         
+        <div id="network-section">
+            <label>Network: </label>
+            <select id="networkSelect">
+                <option value="testnet">BSC Testnet (Free Testing)</option>
+                <option value="mainnet">BSC Mainnet (Live)</option>
+            </select>
+        </div>
+        
         <form id="tokenForm">
-            <input type="text" id="name" placeholder="ชื่อเหรียญ (e.g. Bakla)" required>
-            <input type="text" id="symbol" placeholder="สัญลักษณ์ (e.g. BKL)" required maxlength="10">
+            <input type="text" id="name" placeholder="Token Name (e.g. Bakla)" required>
+            <input type="text" id="symbol" placeholder="Symbol (e.g. BKL)" required maxlength="10">
             <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
             <input type="number" id="decimals" placeholder="Decimals (18)" value="18" required>
             
-            <label>โลโก้เหรียญ (PNG/JPG, <100KB):</label>
+            <label>Token Logo (PNG/JPG, <100KB):</label>
             <input type="file" id="logo" accept="image/png,image/jpeg" required>
-            <img id="logoPreview" style="max-width: 100px; display: none;">
+            <img id="logoPreview" style="max-width: 100px; display: none; border-radius: 50%; margin: 10px 0;">
             
-            <p style="color: lightgreen;">ค่าบริการ: 0.1 BNB (เข้ากระเป๋าทีม) + Gas Fee</p>
+            <p style="color: lightgreen;">Service Fee: 0.1 BNB + Gas Fee</p>
             <button type="submit">Deploy Token!</button>
         </form>
         
