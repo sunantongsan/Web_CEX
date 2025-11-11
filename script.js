@@ -206,27 +206,35 @@ window.onload = () => {
         document.getElementById('tokenNetwork').innerText = networks[tokenData.network].name;
         document.getElementById('tokenLogo').src = tokenData.logo;
 
-        if (web3 && selectedAccount && contractData) {
-            try {
-                switchNetwork(networks[tokenData.network].chainId);
-                const contract = new web3.eth.Contract(contractData.abi);
-                const deployTx = contract.deploy({
-                    data: contractData.bytecode,
-                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
-                });
+        // Calculate fees
+        async function calculateFees() {
+            if (web3 && selectedAccount && contractData) {
+                try {
+                    await switchNetwork(networks[tokenData.network].chainId);
+                    const contract = new web3.eth.Contract(contractData.abi);
+                    const deployTx = contract.deploy({
+                        data: contractData.bytecode,
+                        arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                    });
 
-                const gas = await deployTx.estimateGas({ from: selectedAccount });
-                const gasPrice = await web3.eth.getGasPrice();
-                const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
-                const serviceFee = 0.1;
-                const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
+                    const gas = await deployTx.estimateGas({ from: selectedAccount });
+                    const gasPrice = await web3.eth.getGasPrice();
+                    const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
+                    const serviceFee = 0.1;
+                    const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
 
-                document.getElementById('gasFee').innerText = `${gasFee} BNB`;
-                document.getElementById('totalFee').innerText = `${totalFee} BNB`;
-            } catch (error) {
-                document.getElementById('gasFee').innerText = 'Error calculating gas';
-                document.getElementById('totalFee').innerText = 'Error';
+                    document.getElementById('gasFee').innerText = `${gasFee} BNB`;
+                    document.getElementById('totalFee').innerText = `${totalFee} BNB`;
+                } catch (error) {
+                    console.error('Fee calculation failed:', error);
+                    document.getElementById('gasFee').innerText = 'Error calculating gas';
+                    document.getElementById('totalFee').innerText = 'Error';
+                }
             }
+        }
+
+        if (web3 && selectedAccount && contractData) {
+            calculateFees();
         }
 
         document.getElementById('deployBtn').addEventListener('click', async () => {
