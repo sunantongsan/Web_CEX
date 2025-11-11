@@ -8,3 +8,4 @@ button:hover { background: #ff5252; }
 #result { margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 10px; text-align: left; }
 .wallet-section, #network-section { border: 1px solid white; padding: 10px; border-radius: 5px; margin: 10px 0; }
 small { font-size: 12px; }
+#account { color: lightgreen; font-weight: bold; }
