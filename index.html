@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bakla Token Creator - สร้างเหรียญ BEP-20 ถูกสุด!</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Bakla Token Creator</h1>
+        <p>สร้างเหรียญ BEP-20 บน BSC ค่าบริการแค่ 0.1 BNB + จ่าย gas เอง (~0.01 BNB)</p>
+        <p style="color: yellow;">*DYOR: ทีมไม่รับผิดชอบความเสียหายจากการใช้โทเค็น</p>
+        
+        <div id="connect-wallet" class="wallet-section">
+            <button id="connectBtn">เชื่อม Wallet (MetaMask)</button>
+            <p id="account"></p>
+        </div>
+        
+        <form id="tokenForm">
+            <input type="text" id="name" placeholder="ชื่อเหรียญ (e.g. Bakla)" required>
+            <input type="text" id="symbol" placeholder="สัญลักษณ์ (e.g. BKL)" required maxlength="10">
+            <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
+            <input type="number" id="decimals" placeholder="Decimals (18)" value="18" required>
+            
+            <label>โลโก้เหรียญ (PNG/JPG, <100KB):</label>
+            <input type="file" id="logo" accept="image/png,image/jpeg" required>
+            <img id="logoPreview" style="max-width: 100px; display: none;">
+            
+            <p style="color: lightgreen;">ค่าบริการ: 0.1 BNB (เข้ากระเป๋าทีม) + Gas Fee</p>
+            <button type="submit">Deploy Token!</button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
