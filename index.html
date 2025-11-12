@@ -8,12 +8,14 @@
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         h1 { text-align: center; }
-        input, button { padding: 10px; margin: 5px; width: 200px; }
+        .form-group { margin: 10px 0; }
+        label { display: block; font-weight: bold; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; max-width: 300px; }
+        input[type="file"] { padding: 3px; }
         button { cursor: pointer; background-color: #4CAF50; color: white; border: none; }
         button:hover { background-color: #45a049; }
-        #error { color: red; }
-        #result a { color: blue; }
-        #walletInfo, #deployForm, #result { margin-top: 20px; }
+        #error, #gasEstimate { color: red; margin-top: 10px; }
+        #preview { max-width: 100px; max-height: 100px; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
@@ -23,22 +25,30 @@
         <p>Wallet: <span id="account"></span></p>
         <p>Network: <span id="network"></span></p>
     </div>
-    
-    <div id="deployForm" style="display:none;">
-        <input type="text" id="name" placeholder="ชื่อเหรียญ (e.g. MyToken)" required>
-        <input type="text" id="symbol" placeholder="สัญลักษณ์ (e.g. MTK)" required>
-        <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required min="1">
-        <button id="deployBtn">Deploy เหรียญ</button>
+
+    <div id="createForm" style="display:none;">
+        <div class="form-group">
+            <label for="name">ชื่อเหรียญ (เช่น MyToken)</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="form-group">
+            <label for="symbol">สัญลักษณ์ (เช่น MTK)</label>
+            <input type="text" id="symbol" required>
+        </div>
+        <div class="form-group">
+            <label for="supply">Total Supply (เช่น 1000000)</label>
+            <input type="number" id="supply" required min="1">
+        </div>
+        <div class="form-group">
+            <label for="logo">โลโก้เหรียญ (PNG/JPG, < 1MB)</label>
+            <input type="file" id="logo" accept="image/png,image/jpeg">
+            <img id="preview" style="display:none;" alt="Logo Preview">
+        </div>
+        <div id="gasEstimate"></div>
+        <button id="nextBtn">ถัดไปเพื่อ Deploy</button>
     </div>
-    
-    <div id="result" style="display:none;">
-        <h2>Deploy สำเร็จ!</h2>
-        <p>Contract Address: <a id="contractAddr" href="#" target="_blank"></a></p>
-        <p>Transaction: <a id="txHash" href="#" target="_blank"></a></p>
-        <button id="verifyBtn">Verify บน BscScan</button>
-    </div>
-    
-    <div id="error" style="color:red;"></div>
+
+    <div id="error"></div>
 
     <script src="script.js"></script>
 </body>
