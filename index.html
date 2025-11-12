@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>สร้างเหรียญ BNB Chain</title>
     <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        input, button { padding: 10px; margin: 5px; width: 200px; }
+        button { cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+        button:hover { background-color: #45a049; }
+        #error { color: red; }
+        #result a { color: blue; }
+        #walletInfo, #deployForm, #result { margin-top: 20px; }
+    </style>
 </head>
 <body>
     <h1>สร้างเหรียญ ERC20 บน BNB Smart Chain</h1>
@@ -17,7 +27,7 @@
     <div id="deployForm" style="display:none;">
         <input type="text" id="name" placeholder="ชื่อเหรียญ (e.g. MyToken)" required>
         <input type="text" id="symbol" placeholder="สัญลักษณ์ (e.g. MTK)" required>
-        <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
+        <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required min="1">
         <button id="deployBtn">Deploy เหรียญ</button>
     </div>
     
