@@ -1,45 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bakla Token Creator - One-Click BEP-20</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/web3@4.1.1/dist/web3.min.js"></script>
+    <title>สร้างเหรียญ BNB Chain</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="text/javascript"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>🚀 Bakla Token Creator</h1>
-        <p>Create BEP-20 token in one click! Fill basics, deploy, get contract address.</p>
-        <p style="color: yellow;">*DYOR: Team not responsible for token usage. Testnet for free testing.</p>
-        
-        <div id="connect-wallet" class="wallet-section">
-            <button id="connectBtn">Connect MetaMask</button>
-            <p id="account">Wallet not connected</p>
-        </div>
-        
-        <div id="network-section">
-            <label>Network: </label>
-            <select id="networkSelect">
-                <option value="testnet">BSC Testnet (Free)</option>
-                <option value="mainnet">BSC Mainnet (Live)</option>
-            </select>
-        </div>
-        
-        <form id="tokenForm">
-            <input type="text" id="name" placeholder="Token Name (e.g. Bakla)" required>
-            <input type="text" id="symbol" placeholder="Symbol (e.g. BKL)" required maxlength="10">
-            <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
-            <label>Token Logo (PNG/JPG, <100KB):</label>
-            <input type="file" id="logo" accept="image/png,image/jpeg" required>
-            <img id="logoPreview" style="max-width: 100px; display: none; border-radius: 50%; margin: 10px 0;">
-            <small style="color: #ccc;">Recommended: 128x128 px, <100KB for fast upload</small>
-            <button type="submit" id="nextBtn">Next</button>
-        </form>
-        <div id="result"></div>
+    <h1>สร้างเหรียญ ERC20 บน BNB Smart Chain</h1>
+    <button id="connectBtn">เชื่อมต่อ MetaMask</button>
+    <div id="walletInfo" style="display:none;">
+        <p>Wallet: <span id="account"></span></p>
+        <p>Network: <span id="network"></span></p>
     </div>
     
+    <div id="deployForm" style="display:none;">
+        <input type="text" id="name" placeholder="ชื่อเหรียญ (e.g. MyToken)" required>
+        <input type="text" id="symbol" placeholder="สัญลักษณ์ (e.g. MTK)" required>
+        <input type="number" id="supply" placeholder="Total Supply (e.g. 1000000)" required>
+        <button id="deployBtn">Deploy เหรียญ</button>
+    </div>
+    
+    <div id="result" style="display:none;">
+        <h2>Deploy สำเร็จ!</h2>
+        <p>Contract Address: <a id="contractAddr" href="#" target="_blank"></a></p>
+        <p>Transaction: <a id="txHash" href="#" target="_blank"></a></p>
+        <button id="verifyBtn">Verify บน BscScan</button>
+    </div>
+    
+    <div id="error" style="color:red;"></div>
+
     <script src="script.js"></script>
 </body>
 </html>
