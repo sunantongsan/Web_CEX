@@ -49,7 +49,6 @@ async function connectWallet() {
         if (!window.ethereum.isMetaMask) {
             throw new Error('Detected wallet is not MetaMask. Please use MetaMask.');
         }
-        // Check if MetaMask is locked or no accounts
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts.length === 0) {
             console.log('MetaMask is locked or no accounts found. Requesting access...');
@@ -62,6 +61,7 @@ async function connectWallet() {
             throw new Error('No active wallet found. Please unlock MetaMask or add an account.');
         }
         selectedAccount = newAccounts[0];
+        localStorage.setItem('selectedAccount', selectedAccount);
         document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
         document.getElementById('connectBtn').innerText = 'Wallet Connected';
         document.getElementById('connectBtn').disabled = true;
@@ -134,12 +134,14 @@ window.onload = () => {
         window.ethereum.on('accountsChanged', (accounts) => {
             if (accounts.length > 0) {
                 selectedAccount = accounts[0];
+                localStorage.setItem('selectedAccount', selectedAccount);
                 document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
                 document.getElementById('connectBtn').innerText = 'Wallet Connected';
                 document.getElementById('connectBtn').disabled = true;
                 console.log('Accounts changed:', selectedAccount);
             } else {
                 selectedAccount = null;
+                localStorage.removeItem('selectedAccount');
                 document.getElementById('account').innerText = 'Wallet disconnected';
                 document.getElementById('connectBtn').innerText = 'Connect MetaMask';
                 document.getElementById('connectBtn').disabled = false;
@@ -162,6 +164,9 @@ window.onload = () => {
             const supply = document.getElementById('supply').value;
             const logo = document.getElementById('logo').files[0];
             const network = document.getElementById('networkSelect').value;
+            const lockDays = document.getElementById('lockDays').value;
+            const enableBurn = document.getElementById('enableBurn').checked;
+            const renounceOwnership = document.getElementById('renounceOwnership').checked;
 
             if (!name || !symbol || !supply || !logo) {
                 document.getElementById('result').innerText = 'Please fill all fields and upload a logo.';
@@ -180,7 +185,10 @@ window.onload = () => {
                     symbol,
                     supply,
                     logo: reader.result,
-                    network
+                    network,
+                    lockDays,
+                    enableBurn,
+                    renounceOwnership
                 }));
                 window.location.href = 'deploy.html';
                 console.log('Form submitted, redirecting to deploy.html');
@@ -197,10 +205,27 @@ window.onload = () => {
             return;
         }
 
+        selectedAccount = localStorage.getItem('selectedAccount');
+        if (selectedAccount) {
+            document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
+            document.getElementById('connectBtn').innerText = 'Wallet Connected';
+            document.getElementById('connectBtn').disabled = true;
+            console.log('Using saved account:', selectedAccount);
+        }
+
+        if (!web3 && window.ethereum) {
+            web3 = new Web3(window.ethereum);
+            provider = window.ethereum;
+            console.log('Initialized Web3 in deploy.html');
+        }
+
         document.getElementById('tokenName').innerText = tokenData.name;
         document.getElementById('tokenSymbol').innerText = tokenData.symbol;
         document.getElementById('tokenSupply').innerText = tokenData.supply;
         document.getElementById('tokenNetwork').innerText = networks[tokenData.network].name;
+        document.getElementById('tokenLockDays').innerText = tokenData.lockDays;
+        document.getElementById('tokenBurn').innerText = tokenData.enableBurn ? 'Enabled' : 'Disabled';
+        document.getElementById('tokenRenounce').innerText = tokenData.renounceOwnership ? 'Yes' : 'No';
         document.getElementById('tokenLogo').src = tokenData.logo;
         console.log('Token data loaded in deploy.html:', tokenData);
 
@@ -208,12 +233,18 @@ window.onload = () => {
             if (!web3 || !selectedAccount) {
                 document.getElementById('gasFee').innerText = 'Please connect wallet';
                 document.getElementById('totalFee').innerText = 'Please connect wallet';
+                document.getElementById('lockFee').innerText = 'Please connect wallet';
+                document.getElementById('burnFee').innerText = 'Please connect wallet';
+                document.getElementById('renounceFee').innerText = 'Please connect wallet';
                 console.log('Cannot calculate fees: Wallet not connected');
                 return;
             }
             if (!contractData) {
                 document.getElementById('gasFee').innerText = 'Contract data not loaded';
                 document.getElementById('totalFee').innerText = 'Contract data not loaded';
+                document.getElementById('lockFee').innerText = 'Contract data not loaded';
+                document.getElementById('burnFee').innerText = 'Contract data not loaded';
+                document.getElementById('renounceFee').innerText = 'Contract data not loaded';
                 console.log('Cannot calculate fees: Contract data not loaded');
                 return;
             }
@@ -222,22 +253,36 @@ window.onload = () => {
                 const contract = new web3.eth.Contract(contractData.abi);
                 const deployTx = contract.deploy({
                     data: contractData.bytecode,
-                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                    arguments: [
+                        tokenData.name,
+                        tokenData.symbol,
+                        web3.utils.toWei(tokenData.supply, 'ether'),
+                        tokenData.lockDays
+                    ]
                 });
 
                 const gas = await deployTx.estimateGas({ from: selectedAccount });
                 const gasPrice = await web3.eth.getGasPrice();
                 const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
                 const serviceFee = 0.1;
-                const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
+                const lockFee = tokenData.lockDays > 0 ? 0.03 : 0; // Network 0.01 + Web 0.02
+                const burnFee = tokenData.enableBurn ? 0.03 : 0; // Network 0.01 + Web 0.02
+                const renounceFee = tokenData.renounceOwnership ? 0.03 : 0; // Network 0.01 + Web 0.02
+                const totalFee = (parseFloat(gasFee) + serviceFee + lockFee + burnFee + renounceFee).toFixed(6);
 
                 document.getElementById('gasFee').innerText = `${gasFee} BNB`;
+                document.getElementById('lockFee').innerText = `${lockFee} BNB`;
+                document.getElementById('burnFee').innerText = `${burnFee} BNB`;
+                document.getElementById('renounceFee').innerText = `${renounceFee} BNB`;
                 document.getElementById('totalFee').innerText = `${totalFee} BNB`;
-                console.log('Fees calculated:', { gasFee, totalFee });
+                console.log('Fees calculated:', { gasFee, lockFee, burnFee, renounceFee, totalFee });
             } catch (error) {
                 console.error('Fee calculation failed:', error.message);
                 document.getElementById('gasFee').innerText = 'Error calculating gas';
                 document.getElementById('totalFee').innerText = 'Error';
+                document.getElementById('lockFee').innerText = 'Error';
+                document.getElementById('burnFee').innerText = 'Error';
+                document.getElementById('renounceFee').innerText = 'Error';
             }
         }
 
@@ -245,8 +290,11 @@ window.onload = () => {
             calculateFees();
         }
 
-        document.getElementById('connectBtn').addEventListener('click', () => {
-            setTimeout(calculateFees, 2000);
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            await connectWallet();
+            if (selectedAccount) {
+                setTimeout(calculateFees, 2000);
+            }
         });
 
         document.getElementById('deployBtn').addEventListener('click', async () => {
@@ -267,7 +315,12 @@ window.onload = () => {
                 const contract = new web3.eth.Contract(contractData.abi);
                 const deployTx = contract.deploy({
                     data: contractData.bytecode,
-                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                    arguments: [
+                        tokenData.name,
+                        tokenData.symbol,
+                        web3.utils.toWei(tokenData.supply, 'ether'),
+                        tokenData.lockDays
+                    ]
                 });
 
                 const gas = await deployTx.estimateGas({ from: selectedAccount });
@@ -276,9 +329,9 @@ window.onload = () => {
                 await web3.eth.sendTransaction({
                     from: selectedAccount,
                     to: '0x30f8441bC896054A9Ed570ed52c92b82BB1ECF4d',
-                    value: web3.utils.toWei('0.1', 'ether')
+                    value: web3.utils.toWei((0.1 + (tokenData.lockDays > 0 ? 0.03 : 0) + (tokenData.enableBurn ? 0.03 : 0) + (tokenData.renounceOwnership ? 0.03 : 0)).toString(), 'ether')
                 });
-                console.log('Service fee sent');
+                console.log('Service and additional fees sent');
 
                 const deployedContract = await deployTx.send({
                     from: selectedAccount,
@@ -286,6 +339,17 @@ window.onload = () => {
                     gasPrice
                 });
                 console.log('Contract deployed:', deployedContract.options.address);
+
+                if (tokenData.enableBurn) {
+                    const contractInstance = new web3.eth.Contract(contractData.abi, deployedContract.options.address);
+                    console.log('Burn function enabled, no immediate action required');
+                }
+
+                if (tokenData.renounceOwnership) {
+                    const contractInstance = new web3.eth.Contract(contractData.abi, deployedContract.options.address);
+                    await contractInstance.methods.renounceOwnership().send({ from: selectedAccount });
+                    console.log('Ownership renounced');
+                }
 
                 document.getElementById('result').innerHTML = `
                     <p>Token Deployed Successfully!</p>
