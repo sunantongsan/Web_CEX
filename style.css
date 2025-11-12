@@ -12,7 +12,7 @@ body {
     padding: 20px;
     border-radius: 10px;
 }
-input, button, select {
+input, button, select, label {
     width: 100%;
     padding: 10px;
     margin: 10px 0;
@@ -68,4 +68,8 @@ small {
 }
 #token-details p, #fee-details p {
     text-align: left;
+}
+label {
+    text-align: left;
+    display: block;
 }
