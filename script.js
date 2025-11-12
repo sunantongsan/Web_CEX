@@ -35,8 +35,8 @@ fetch('contract.json')
         console.log('Contract data loaded successfully');
     })
     .catch(error => {
-        console.error('Failed to load contract.json:', error.message);
-        document.getElementById('result').innerText = 'Error: Failed to load contract data. Check console.';
+        console.error('Failed to load contract.json:', error);
+        document.getElementById('result').innerText = 'Error: Failed to load contract data. Check console for details.';
     });
 
 // Connect MetaMask
@@ -44,13 +44,24 @@ async function connectWallet() {
     try {
         console.log('Connecting to MetaMask...');
         if (!window.ethereum) {
-            throw new Error('MetaMask not detected. Please install MetaMask.');
+            throw new Error('MetaMask not detected. Please install MetaMask from https://metamask.io.');
         }
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (!window.ethereum.isMetaMask) {
+            throw new Error('Detected wallet is not MetaMask. Please use MetaMask.');
+        }
+        // Check if MetaMask is locked or no accounts
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length === 0) {
+            console.log('MetaMask is locked or no accounts found. Requesting access...');
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
         web3 = new Web3(window.ethereum);
         provider = window.ethereum;
-        const accounts = await web3.eth.getAccounts();
-        selectedAccount = accounts[0];
+        const newAccounts = await web3.eth.getAccounts();
+        if (newAccounts.length === 0) {
+            throw new Error('No active wallet found. Please unlock MetaMask or add an account.');
+        }
+        selectedAccount = newAccounts[0];
         document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
         document.getElementById('connectBtn').innerText = 'Wallet Connected';
         document.getElementById('connectBtn').disabled = true;
@@ -77,11 +88,14 @@ async function switchNetwork(chainId) {
                 params: [{
                     chainId: network.chainId,
                     chainName: network.name,
-                    rpcUrls: [network.rpc]
+                    rpcUrls: [network.rpc],
+                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                    blockExplorerUrls: [network.explorer]
                 }]
             });
             console.log('Added network:', network.name);
         } else {
+            console.error('Network switch failed:', switchError.message);
             throw switchError;
         }
     }
@@ -116,23 +130,26 @@ window.onload = () => {
         });
     }
 
-    if (provider) {
-        provider.on('accountsChanged', (accounts) => {
+    if (window.ethereum) {
+        window.ethereum.on('accountsChanged', (accounts) => {
             if (accounts.length > 0) {
                 selectedAccount = accounts[0];
                 document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
                 document.getElementById('connectBtn').innerText = 'Wallet Connected';
                 document.getElementById('connectBtn').disabled = true;
+                console.log('Accounts changed:', selectedAccount);
             } else {
                 selectedAccount = null;
                 document.getElementById('account').innerText = 'Wallet disconnected';
                 document.getElementById('connectBtn').innerText = 'Connect MetaMask';
                 document.getElementById('connectBtn').disabled = false;
+                console.log('Wallet disconnected');
             }
         });
 
-        provider.on('chainChanged', () => {
+        window.ethereum.on('chainChanged', () => {
             window.location.reload();
+            console.log('Chain changed, reloading...');
         });
     }
 
@@ -185,16 +202,19 @@ window.onload = () => {
         document.getElementById('tokenSupply').innerText = tokenData.supply;
         document.getElementById('tokenNetwork').innerText = networks[tokenData.network].name;
         document.getElementById('tokenLogo').src = tokenData.logo;
+        console.log('Token data loaded in deploy.html:', tokenData);
 
         async function calculateFees() {
             if (!web3 || !selectedAccount) {
                 document.getElementById('gasFee').innerText = 'Please connect wallet';
                 document.getElementById('totalFee').innerText = 'Please connect wallet';
+                console.log('Cannot calculate fees: Wallet not connected');
                 return;
             }
             if (!contractData) {
                 document.getElementById('gasFee').innerText = 'Contract data not loaded';
                 document.getElementById('totalFee').innerText = 'Contract data not loaded';
+                console.log('Cannot calculate fees: Contract data not loaded');
                 return;
             }
             try {
@@ -213,6 +233,7 @@ window.onload = () => {
 
                 document.getElementById('gasFee').innerText = `${gasFee} BNB`;
                 document.getElementById('totalFee').innerText = `${totalFee} BNB`;
+                console.log('Fees calculated:', { gasFee, totalFee });
             } catch (error) {
                 console.error('Fee calculation failed:', error.message);
                 document.getElementById('gasFee').innerText = 'Error calculating gas';
@@ -231,14 +252,17 @@ window.onload = () => {
         document.getElementById('deployBtn').addEventListener('click', async () => {
             if (!web3 || !selectedAccount) {
                 document.getElementById('result').innerText = 'Please connect wallet first.';
+                console.log('Deploy failed: Wallet not connected');
                 return;
             }
             if (!contractData) {
                 document.getElementById('result').innerText = 'Contract data not loaded. Please try again.';
+                console.log('Deploy failed: Contract data not loaded');
                 return;
             }
 
             try {
+                console.log('Deploying contract...');
                 await switchNetwork(networks[tokenData.network].chainId);
                 const contract = new web3.eth.Contract(contractData.abi);
                 const deployTx = contract.deploy({
@@ -254,12 +278,14 @@ window.onload = () => {
                     to: '0x30f8441bC896054A9Ed570ed52c92b82BB1ECF4d',
                     value: web3.utils.toWei('0.1', 'ether')
                 });
+                console.log('Service fee sent');
 
                 const deployedContract = await deployTx.send({
                     from: selectedAccount,
                     gas,
                     gasPrice
                 });
+                console.log('Contract deployed:', deployedContract.options.address);
 
                 document.getElementById('result').innerHTML = `
                     <p>Token Deployed Successfully!</p>
@@ -282,6 +308,7 @@ window.onload = () => {
                 reader.onload = (e) => {
                     document.getElementById('logoPreview').src = e.target.result;
                     document.getElementById('logoPreview').style.display = 'block';
+                    console.log('Logo preview loaded');
                 };
                 reader.readAsDataURL(file);
             }
