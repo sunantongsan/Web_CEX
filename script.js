@@ -1,7 +1,6 @@
 // Global vars
 let provider, signer, contractData, account, userNetwork;
 
-// Load contract on window load
 window.addEventListener('load', async () => {
     console.log('Window loaded');
     try {
@@ -16,8 +15,10 @@ window.addEventListener('load', async () => {
 
     // Setup buttons
     document.getElementById('connectBtn').addEventListener('click', connectWallet);
-    document.getElementById('deployBtn').addEventListener('click', deployContract);
-    document.getElementById('verifyBtn').addEventListener('click', verifyOnBscScan);
+    document.getElementById('nextBtn').addEventListener('click', goToDeploy);
+
+    // Logo preview
+    document.getElementById('logo').addEventListener('change', previewLogo);
 });
 
 // Connect MetaMask
@@ -47,7 +48,10 @@ async function connectWallet() {
                             params: [{
                                 chainId: '0x61',
                                 chainName: 'BSC Testnet',
-                                rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
+                                rpcUrls: [
+                                    'https://data-seed-prebsc-1-s1.binance.org:8545/',
+                                    'https://data-seed-prebsc-2-s2.binance.org:8545/'
+                                ],
                                 nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
                                 blockExplorerUrls: ['https://testnet.bscscan.com']
                             }]
@@ -62,7 +66,7 @@ async function connectWallet() {
             document.getElementById('account').innerText = account;
             document.getElementById('network').innerText = `BSC Testnet (Chain ID: ${userNetwork.chainId})`;
             document.getElementById('walletInfo').style.display = 'block';
-            document.getElementById('deployForm').style.display = 'block';
+            document.getElementById('createForm').style.display = 'block';
             document.getElementById('connectBtn').innerText = 'เชื่อมต่อแล้ว';
             console.log('MetaMask connected:', account);
         } catch (error) {
@@ -74,8 +78,30 @@ async function connectWallet() {
     }
 }
 
-// Deploy Contract
-async function deployContract() {
+// Preview logo
+function previewLogo(event) {
+    const file = event.target.files[0];
+    if (file) {
+        if (file.size > 1 * 1024 * 1024) {
+            document.getElementById('error').innerText = 'ไฟล์โลโก้ต้องเล็กกว่า 1MB';
+            return;
+        }
+        if (!['image/png', 'image/jpeg'].includes(file.type)) {
+            document.getElementById('error').innerText = 'ต้องเป็นไฟล์ PNG หรือ JPG';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.getElementById('preview');
+            img.src = e.target.result;
+            img.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Go to deploy page
+async function goToDeploy() {
     if (!contractData || !signer) {
         document.getElementById('error').innerText = 'กรุณาเชื่อมต่อ wallet และโหลด contract ก่อน!';
         return;
@@ -84,6 +110,7 @@ async function deployContract() {
     const name = document.getElementById('name').value.trim();
     const symbol = document.getElementById('symbol').value.trim();
     const totalSupplyInput = document.getElementById('supply').value.trim();
+    const logoFile = document.getElementById('logo').files[0];
 
     // Validate inputs
     if (!name || !symbol || !totalSupplyInput) {
@@ -100,61 +127,58 @@ async function deployContract() {
         return;
     }
 
-    console.log('Deploy inputs:', { name, symbol, totalSupply: totalSupply.toString() });
+    if (!logoFile) {
+        document.getElementById('error').innerText = 'กรุณาอัพโหลดโลโก้!';
+        return;
+    }
 
-    document.getElementById('deployBtn').innerText = 'กำลัง Deploy...';
-    document.getElementById('error').innerText = '';
+    console.log('Inputs:', { name, symbol, totalSupply: totalSupply.toString(), logo: logoFile.name });
 
+    // Estimate gas
     try {
         const factory = new ethers.ContractFactory(contractData.abi, contractData.bytecode, signer);
-        console.log('Contract data:', { abi: contractData.abi.length, bytecode: contractData.bytecode.slice(0, 20) + '...' });
-
-        // Estimate gas
         const deployTx = factory.getDeployTransaction(name, symbol, totalSupply);
-        const gasEstimate = await provider.estimateGas(deployTx).catch(e => {
-            throw new Error('Gas estimation failed: ' + (e.reason || e.message || JSON.stringify(e)));
-        });
+        const gasEstimate = await provider.estimateGas(deployTx);
         console.log('Gas estimate:', gasEstimate.toString());
+
+        // Assume gas price 5 gwei
+        const gasPrice = ethers.utils.parseUnits('5', 'gwei');
+        const networkFee = gasEstimate.mul(gasPrice);
+        const serviceFee = ethers.utils.parseEther('0.1'); // 0.1 BNB
+        const totalFee = networkFee.add(serviceFee);
+
+        document.getElementById('gasEstimate').innerText = `ค่าใช้จ่ายทั้งหมด: ${ethers.utils.formatEther(totalFee)} BNB`;
 
         // Check balance
         const balance = await provider.getBalance(account);
         console.log('Wallet balance:', ethers.utils.formatEther(balance), 'BNB');
-        if (balance.lt(gasEstimate.mul(ethers.utils.parseUnits('20', 'gwei')))) {
-            throw new Error('BNB ไม่พอสำหรับ gas');
+        if (balance.lt(totalFee)) {
+            document.getElementById('error').innerText = `BNB ไม่เพียงพอ ต้องการอย่างน้อย ${ethers.utils.formatEther(totalFee)} BNB`;
+            return;
         }
 
-        // Deploy
-        const tx = await factory.deploy(name, symbol, totalSupply, {
-            gasLimit: gasEstimate.mul(150).div(100) // +50% buffer
-        });
-        console.log('Deploy tx sent:', tx.hash);
+        // Store data in localStorage
+        localStorage.setItem('tokenData', JSON.stringify({
+            name,
+            symbol,
+            totalSupply: totalSupply.toString(),
+            logo: logoFile ? await fileToBase64(logoFile) : null
+        }));
 
-        // Wait for confirm
-        const receipt = await tx.wait();
-        const contractAddress = receipt.contractAddress;
-        console.log('Deploy success, address:', contractAddress);
-
-        // Show result
-        document.getElementById('contractAddr').href = `https://testnet.bscscan.com/address/${contractAddress}`;
-        document.getElementById('contractAddr').innerText = contractAddress;
-        document.getElementById('txHash').href = `https://testnet.bscscan.com/tx/${tx.hash}`;
-        document.getElementById('txHash').innerText = tx.hash;
-        document.getElementById('result').style.display = 'block';
-        document.getElementById('deployForm').style.display = 'none';
+        // Go to deploy page
+        window.location.href = 'deploy.html';
     } catch (error) {
-        console.error('Deployment failed:', error);
-        let msg = 'Error Deploy: ';
-        if (error.code === 'INSUFFICIENT_FUNDS') msg += 'เงิน BNB ไม่พอ (เช็ค gas)';
-        else if (error.code === 4001) msg += 'ยกเลิก tx ใน MetaMask';
-        else if (error.reason) msg += error.reason;
-        else msg += JSON.stringify(error, null, 2);
-        document.getElementById('error').innerText = msg;
-        document.getElementById('deployBtn').innerText = 'Deploy เหรียญ';
+        console.error('Gas estimation failed:', error);
+        document.getElementById('error').innerText = 'Error: ไม่สามารถคำนวณค่า gas ได้: ' + (error.reason || error.message || JSON.stringify(error));
     }
 }
 
-// Verify on BscScan
-function verifyOnBscScan() {
-    const addr = document.getElementById('contractAddr').innerText;
-    window.open(`https://testnet.bscscan.com/address/${addr}#code`, '_blank');
+// Convert file to base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
