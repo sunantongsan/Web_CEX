@@ -5,7 +5,7 @@ window.addEventListener('load', async () => {
     console.log('Window loaded');
     try {
         const response = await fetch('contract.json');
-        if (!response.ok) throw new Error('Cannot load contract.json');
+        if (!response.ok) throw new Error(`Cannot load contract.json: ${response.status}`);
         contractData = await response.json();
         console.log('Contract data loaded successfully');
     } catch (error) {
@@ -23,58 +23,62 @@ window.addEventListener('load', async () => {
 
 // Connect MetaMask
 async function connectWallet() {
-    if (typeof window.ethereum !== 'undefined') {
-        console.log('Connecting to MetaMask...');
-        try {
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-            account = accounts[0];
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            signer = provider.getSigner();
-            userNetwork = await provider.getNetwork();
+    if (typeof window.ethereum === 'undefined') {
+        document.getElementById('error').innerText = 'กรุณาติดตั้ง MetaMask!';
+        console.error('MetaMask not detected');
+        return;
+    }
 
-            // Check BSC Testnet (chainId 97)
-            if (userNetwork.chainId !== 97) {
-                try {
+    console.log('Connecting to MetaMask...');
+    try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        account = accounts[0];
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userNetwork = await provider.getNetwork();
+        console.log('Network:', userNetwork);
+
+        // Check BSC Testnet (chainId 97)
+        if (userNetwork.chainId !== 97) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x61' }]
+                });
+                userNetwork = await provider.getNetwork();
+                console.log('Switched to chainId: 0x61');
+            } catch (switchError) {
+                console.error('Switch chain error:', switchError);
+                if (switchError.code === 4902) {
                     await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x61' }]
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x61',
+                            chainName: 'BSC Testnet',
+                            rpcUrls: [
+                                'https://data-seed-prebsc-1-s1.binance.org:8545/',
+                                'https://data-seed-prebsc-2-s2.binance.org:8545/'
+                            ],
+                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                            blockExplorerUrls: ['https://testnet.bscscan.com']
+                        }]
                     });
                     userNetwork = await provider.getNetwork();
-                    console.log('Switched to chainId: 0x61');
-                } catch (switchError) {
-                    if (switchError.code === 4902) {
-                        await window.ethereum.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: '0x61',
-                                chainName: 'BSC Testnet',
-                                rpcUrls: [
-                                    'https://data-seed-prebsc-1-s1.binance.org:8545/',
-                                    'https://data-seed-prebsc-2-s2.binance.org:8545/'
-                                ],
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                blockExplorerUrls: ['https://testnet.bscscan.com']
-                            }]
-                        });
-                        userNetwork = await provider.getNetwork();
-                    } else {
-                        throw switchError;
-                    }
+                } else {
+                    throw new Error(`Switch chain failed: ${JSON.stringify(switchError)}`);
                 }
             }
-
-            document.getElementById('account').innerText = account;
-            document.getElementById('network').innerText = `BSC Testnet (Chain ID: ${userNetwork.chainId})`;
-            document.getElementById('walletInfo').style.display = 'block';
-            document.getElementById('createForm').style.display = 'block';
-            document.getElementById('connectBtn').innerText = 'เชื่อมต่อแล้ว';
-            console.log('MetaMask connected:', account);
-        } catch (error) {
-            console.error('Connect error:', error);
-            document.getElementById('error').innerText = 'Error: ' + error.message;
         }
-    } else {
-        document.getElementById('error').innerText = 'กรุณาติดตั้ง MetaMask!';
+
+        document.getElementById('account').innerText = account;
+        document.getElementById('network').innerText = `BSC Testnet (Chain ID: ${userNetwork.chainId})`;
+        document.getElementById('walletInfo').style.display = 'block';
+        document.getElementById('createForm').style.display = 'block';
+        document.getElementById('connectBtn').innerText = 'เชื่อมต่อแล้ว';
+        console.log('MetaMask connected:', account);
+    } catch (error) {
+        console.error('Connect error:', error);
+        document.getElementById('error').innerText = 'Error: การเชื่อมต่อ MetaMask ล้มเหลว: ' + (error.message || JSON.stringify(error));
     }
 }
 
@@ -141,8 +145,9 @@ async function goToDeploy() {
         const gasEstimate = await provider.estimateGas(deployTx);
         console.log('Gas estimate:', gasEstimate.toString());
 
-        // Assume gas price 5 gwei
-        const gasPrice = ethers.utils.parseUnits('5', 'gwei');
+        // Get current gas price
+        const gasPrice = await provider.getGasPrice();
+        console.log('Gas price:', ethers.utils.formatUnits(gasPrice, 'gwei'), 'gwei');
         const networkFee = gasEstimate.mul(gasPrice);
         const serviceFee = ethers.utils.parseEther('0.1'); // 0.1 BNB
         const totalFee = networkFee.add(serviceFee);
