@@ -1,41 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bakla Token Creator - Deploy Token</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
-    <script src="https://cdn.jsdelivr.net/npm/web3@4.1.1/dist/web3.min.js"></script>
+    <title>Deploy เหรียญ BNB Chain</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        button { padding: 10px; margin: 5px; width: 200px; cursor: pointer; background-color: #4CAF50; color: white; border: none; }
+        button:hover { background-color: #45a049; }
+        #error { color: red; }
+        #result a { color: blue; }
+        #result { margin-top: 20px; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🚀 Confirm Token Deployment</h1>
-        <p>Review your token details and deploy your BEP-20 token.</p>
-        <div id="connect-wallet" class="wallet-section">
-            <button id="connectBtn">Connect MetaMask</button>
-            <p id="account">Wallet not connected</p>
-        </div>
-        <div id="token-details">
-            <h3>Token Details</h3>
-            <p><strong>Name:</strong> <span id="tokenName"></span></p>
-            <p><strong>Symbol:</strong> <span id="tokenSymbol"></span></p>
-            <p><strong>Total Supply:</strong> <span id="tokenSupply"></span></p>
-            <p><strong>Network:</strong> <span id="tokenNetwork"></span></p>
-            <p><strong>Logo:</strong></p>
-            <img id="tokenLogo" style="max-width: 100px; border-radius: 50%;">
-        </div>
-        <div id="fee-details">
-            <h3>Estimated Fees</h3>
-            <p><strong>Service Fee:</strong> 0.1 BNB</p>
-            <p><strong>Estimated Gas Fee:</strong> <span id="gasFee">Calculating...</span></p>
-            <p><strong>Total:</strong> <span id="totalFee">Calculating...</span></p>
-        </div>
-        <button id="deployBtn">🚀 Deploy Now!</button>
-        <div id="result"></div>
-        <a href="index.html" class="back-btn">Back to Edit</a>
+    <h1>Deploy เหรียญ ERC20</h1>
+    <div id="deployInfo">
+        <p>Wallet: <span id="account"></span></p>
+        <p>Network: <span id="network"></span></p>
+        <p>ชื่อเหรียญ: <span id="name"></span></p>
+        <p>สัญลักษณ์: <span id="symbol"></span></p>
+        <p>Total Supply: <span id="supply"></span></p>
+    </div>
+    <button id="deployBtn">Deploy และชำระค่าบริการ</button>
+    
+    <div id="result" style="display:none;">
+        <h2>Deploy สำเร็จ!</h2>
+        <p>Contract Address: <a id="contractAddr" href="#" target="_blank"></a></p>
+        <p>Transaction: <a id="txHash" href="#" target="_blank"></a></p>
+        <button id="verifyBtn">Verify บน BscScan</button>
     </div>
     
-    <script src="script.js"></script>
+    <div id="error" style="color:red;"></div>
+
+    <script src="deploy.js"></script>
 </body>
 </html>
