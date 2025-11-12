@@ -28,10 +28,11 @@ fetch('contract.json')
     })
     .then(data => {
         contractData = data;
+        console.log('Contract data loaded successfully');
     })
     .catch(error => {
         console.error('Failed to load contract.json:', error);
-        document.getElementById('result').innerText = 'Error: Failed to load contract data. Please refresh.';
+        document.getElementById('result').innerText = 'Error: Failed to load contract data. Please refresh or check console.';
     });
 
 // Connect wallet
@@ -42,7 +43,7 @@ async function connectWallet() {
         }
         const Web3Modal = window.Web3Modal;
         const web3Modal = new Web3Modal({
-            cacheProvider: false,
+            cacheProvider: false, // Disable cache to avoid third-party cookie issues
             providerOptions: {
                 walletconnect: {
                     package: window.WalletConnectProvider,
@@ -213,34 +214,48 @@ window.onload = () => {
 
         // Calculate fees
         async function calculateFees() {
-            if (web3 && selectedAccount && contractData) {
-                try {
-                    await switchNetwork(networks[tokenData.network].chainId);
-                    const contract = new web3.eth.Contract(contractData.abi);
-                    const deployTx = contract.deploy({
-                        data: contractData.bytecode,
-                        arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
-                    });
+            if (!web3 || !selectedAccount) {
+                document.getElementById('gasFee').innerText = 'Please connect wallet';
+                document.getElementById('totalFee').innerText = 'Please connect wallet';
+                return;
+            }
+            if (!contractData) {
+                document.getElementById('gasFee').innerText = 'Contract data not loaded';
+                document.getElementById('totalFee').innerText = 'Contract data not loaded';
+                return;
+            }
+            try {
+                await switchNetwork(networks[tokenData.network].chainId);
+                const contract = new web3.eth.Contract(contractData.abi);
+                const deployTx = contract.deploy({
+                    data: contractData.bytecode,
+                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                });
 
-                    const gas = await deployTx.estimateGas({ from: selectedAccount });
-                    const gasPrice = await web3.eth.getGasPrice();
-                    const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
-                    const serviceFee = 0.1;
-                    const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
+                const gas = await deployTx.estimateGas({ from: selectedAccount });
+                const gasPrice = await web3.eth.getGasPrice();
+                const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
+                const serviceFee = 0.1;
+                const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
 
-                    document.getElementById('gasFee').innerText = `${gasFee} BNB`;
-                    document.getElementById('totalFee').innerText = `${totalFee} BNB`;
-                } catch (error) {
-                    console.error('Fee calculation failed:', error);
-                    document.getElementById('gasFee').innerText = 'Error calculating gas';
-                    document.getElementById('totalFee').innerText = 'Error';
-                }
+                document.getElementById('gasFee').innerText = `${gasFee} BNB`;
+                document.getElementById('totalFee').innerText = `${totalFee} BNB`;
+            } catch (error) {
+                console.error('Fee calculation failed:', error);
+                document.getElementById('gasFee').innerText = 'Error calculating gas';
+                document.getElementById('totalFee').innerText = 'Error';
             }
         }
 
-        if (web3 && selectedAccount && contractData) {
+        // Trigger fee calculation when wallet is connected
+        if (web3 && selectedAccount) {
             calculateFees();
         }
+
+        // Recalculate fees when wallet connects
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            setTimeout(calculateFees, 2000); // Wait for wallet connection
+        });
 
         document.getElementById('deployBtn').addEventListener('click', async () => {
             if (!web3 || !selectedAccount) {
