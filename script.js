@@ -1,189 +1,290 @@
-// Global vars
-let provider, signer, contractData, account, userNetwork;
-
-window.addEventListener('load', async () => {
-    console.log('Window loaded');
-    try {
-        const response = await fetch('contract.json');
-        if (!response.ok) throw new Error(`Cannot load contract.json: ${response.status}`);
-        contractData = await response.json();
-        console.log('Contract data loaded successfully');
-    } catch (error) {
-        console.error('Failed to load contract.json:', error);
-        document.getElementById('error').innerText = 'Error: ไม่สามารถโหลด contract.json ได้: ' + error.message;
+// Network configurations
+const networks = {
+    testnet: {
+        chainId: '0x61',
+        rpc: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
+        name: 'Binance Smart Chain Testnet',
+        explorer: 'https://testnet.bscscan.com'
+    },
+    mainnet: {
+        chainId: '0x38',
+        rpc: 'https://bsc-dataseed.binance.org/',
+        name: 'Binance Smart Chain Mainnet',
+        explorer: 'https://bscscan.com'
     }
+};
 
-    // Setup buttons
-    document.getElementById('connectBtn').addEventListener('click', connectWallet);
-    document.getElementById('nextBtn').addEventListener('click', goToDeploy);
+// Initialize Web3
+let web3;
+let provider;
+let selectedAccount;
+let contractData;
 
-    // Logo preview
-    document.getElementById('logo').addEventListener('change', previewLogo);
-});
+// Load contract ABI and Bytecode
+console.log('Loading script.js...');
+fetch('contract.json')
+    .then(response => {
+        if (!response.ok) {
+            console.error('Fetch contract.json failed with status:', response.status);
+            throw new Error('Failed to fetch contract.json');
+        }
+        return response.json();
+    })
+    .then(data => {
+        contractData = data;
+        console.log('Contract data loaded successfully');
+    })
+    .catch(error => {
+        console.error('Failed to load contract.json:', error.message);
+        document.getElementById('result').innerText = 'Error: Failed to load contract data. Check console.';
+    });
 
 // Connect MetaMask
 async function connectWallet() {
-    if (typeof window.ethereum === 'undefined') {
-        document.getElementById('error').innerText = 'กรุณาติดตั้ง MetaMask!';
-        console.error('MetaMask not detected');
-        return;
+    try {
+        console.log('Connecting to MetaMask...');
+        if (!window.ethereum) {
+            throw new Error('MetaMask not detected. Please install MetaMask.');
+        }
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        web3 = new Web3(window.ethereum);
+        provider = window.ethereum;
+        const accounts = await web3.eth.getAccounts();
+        selectedAccount = accounts[0];
+        document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
+        document.getElementById('connectBtn').innerText = 'Wallet Connected';
+        document.getElementById('connectBtn').disabled = true;
+        console.log('MetaMask connected:', selectedAccount);
+    } catch (error) {
+        console.error('Connection failed:', error.message);
+        document.getElementById('result').innerText = `Connection failed: ${error.message}`;
+    }
+}
+
+// Switch network
+async function switchNetwork(chainId) {
+    try {
+        await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId }]
+        });
+        console.log('Switched to chainId:', chainId);
+    } catch (switchError) {
+        if (switchError.code === 4902) {
+            const network = Object.values(networks).find(n => n.chainId === chainId);
+            await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                    chainId: network.chainId,
+                    chainName: network.name,
+                    rpcUrls: [network.rpc]
+                }]
+            });
+            console.log('Added network:', network.name);
+        } else {
+            throw switchError;
+        }
+    }
+}
+
+// Initialize on page load
+window.onload = () => {
+    console.log('Window loaded');
+    const connectBtn = document.getElementById('connectBtn');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', connectWallet);
+    } else {
+        console.error('Connect button not found');
+        document.getElementById('result').innerText = 'Error: Connect button not found';
     }
 
-    console.log('Connecting to MetaMask...');
-    try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        account = accounts[0];
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userNetwork = await provider.getNetwork();
-        console.log('Network:', userNetwork);
-
-        // Check BSC Testnet (chainId 97)
-        if (userNetwork.chainId !== 97) {
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x61' }]
-                });
-                userNetwork = await provider.getNetwork();
-                console.log('Switched to chainId: 0x61');
-            } catch (switchError) {
-                console.error('Switch chain error:', switchError);
-                if (switchError.code === 4902) {
-                    await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: '0x61',
-                            chainName: 'BSC Testnet',
-                            rpcUrls: [
-                                'https://data-seed-prebsc-1-s1.binance.org:8545/',
-                                'https://data-seed-prebsc-2-s2.binance.org:8545/'
-                            ],
-                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                            blockExplorerUrls: ['https://testnet.bscscan.com']
-                        }]
-                    });
-                    userNetwork = await provider.getNetwork();
-                } else {
-                    throw new Error(`Switch chain failed: ${JSON.stringify(switchError)}`);
+    const networkSelect = document.getElementById('networkSelect');
+    if (networkSelect) {
+        networkSelect.addEventListener('change', async (event) => {
+            const selectedNetwork = event.target.value;
+            const chainId = networks[selectedNetwork].chainId;
+            if (web3 && selectedAccount) {
+                try {
+                    await switchNetwork(chainId);
+                } catch (error) {
+                    console.error('Network switch failed:', error.message);
+                    document.getElementById('result').innerText = `Failed to switch network: ${error.message}`;
                 }
+            } else {
+                document.getElementById('result').innerText = 'Please connect wallet first.';
+            }
+        });
+    }
+
+    if (provider) {
+        provider.on('accountsChanged', (accounts) => {
+            if (accounts.length > 0) {
+                selectedAccount = accounts[0];
+                document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
+                document.getElementById('connectBtn').innerText = 'Wallet Connected';
+                document.getElementById('connectBtn').disabled = true;
+            } else {
+                selectedAccount = null;
+                document.getElementById('account').innerText = 'Wallet disconnected';
+                document.getElementById('connectBtn').innerText = 'Connect MetaMask';
+                document.getElementById('connectBtn').disabled = false;
+            }
+        });
+
+        provider.on('chainChanged', () => {
+            window.location.reload();
+        });
+    }
+
+    const tokenForm = document.getElementById('tokenForm');
+    if (tokenForm) {
+        tokenForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const symbol = document.getElementById('symbol').value;
+            const supply = document.getElementById('supply').value;
+            const logo = document.getElementById('logo').files[0];
+            const network = document.getElementById('networkSelect').value;
+
+            if (!name || !symbol || !supply || !logo) {
+                document.getElementById('result').innerText = 'Please fill all fields and upload a logo.';
+                return;
+            }
+
+            if (logo.size > 100000) {
+                document.getElementById('result').innerText = 'Logo must be less than 100KB.';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                localStorage.setItem('tokenData', JSON.stringify({
+                    name,
+                    symbol,
+                    supply,
+                    logo: reader.result,
+                    network
+                }));
+                window.location.href = 'deploy.html';
+                console.log('Form submitted, redirecting to deploy.html');
+            };
+            reader.readAsDataURL(logo);
+        });
+    }
+
+    if (window.location.pathname.includes('deploy.html')) {
+        const tokenData = JSON.parse(localStorage.getItem('tokenData'));
+        if (!tokenData) {
+            window.location.href = 'index.html';
+            console.log('No token data, redirecting to index.html');
+            return;
+        }
+
+        document.getElementById('tokenName').innerText = tokenData.name;
+        document.getElementById('tokenSymbol').innerText = tokenData.symbol;
+        document.getElementById('tokenSupply').innerText = tokenData.supply;
+        document.getElementById('tokenNetwork').innerText = networks[tokenData.network].name;
+        document.getElementById('tokenLogo').src = tokenData.logo;
+
+        async function calculateFees() {
+            if (!web3 || !selectedAccount) {
+                document.getElementById('gasFee').innerText = 'Please connect wallet';
+                document.getElementById('totalFee').innerText = 'Please connect wallet';
+                return;
+            }
+            if (!contractData) {
+                document.getElementById('gasFee').innerText = 'Contract data not loaded';
+                document.getElementById('totalFee').innerText = 'Contract data not loaded';
+                return;
+            }
+            try {
+                await switchNetwork(networks[tokenData.network].chainId);
+                const contract = new web3.eth.Contract(contractData.abi);
+                const deployTx = contract.deploy({
+                    data: contractData.bytecode,
+                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                });
+
+                const gas = await deployTx.estimateGas({ from: selectedAccount });
+                const gasPrice = await web3.eth.getGasPrice();
+                const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
+                const serviceFee = 0.1;
+                const totalFee = (parseFloat(gasFee) + serviceFee).toFixed(6);
+
+                document.getElementById('gasFee').innerText = `${gasFee} BNB`;
+                document.getElementById('totalFee').innerText = `${totalFee} BNB`;
+            } catch (error) {
+                console.error('Fee calculation failed:', error.message);
+                document.getElementById('gasFee').innerText = 'Error calculating gas';
+                document.getElementById('totalFee').innerText = 'Error';
             }
         }
 
-        document.getElementById('account').innerText = account;
-        document.getElementById('network').innerText = `BSC Testnet (Chain ID: ${userNetwork.chainId})`;
-        document.getElementById('walletInfo').style.display = 'block';
-        document.getElementById('createForm').style.display = 'block';
-        document.getElementById('connectBtn').innerText = 'เชื่อมต่อแล้ว';
-        console.log('MetaMask connected:', account);
-    } catch (error) {
-        console.error('Connect error:', error);
-        document.getElementById('error').innerText = 'Error: การเชื่อมต่อ MetaMask ล้มเหลว: ' + (error.message || JSON.stringify(error));
-    }
-}
-
-// Preview logo
-function previewLogo(event) {
-    const file = event.target.files[0];
-    if (file) {
-        if (file.size > 1 * 1024 * 1024) {
-            document.getElementById('error').innerText = 'ไฟล์โลโก้ต้องเล็กกว่า 1MB';
-            return;
-        }
-        if (!['image/png', 'image/jpeg'].includes(file.type)) {
-            document.getElementById('error').innerText = 'ต้องเป็นไฟล์ PNG หรือ JPG';
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const img = document.getElementById('preview');
-            img.src = e.target.result;
-            img.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-// Go to deploy page
-async function goToDeploy() {
-    if (!contractData || !signer) {
-        document.getElementById('error').innerText = 'กรุณาเชื่อมต่อ wallet และโหลด contract ก่อน!';
-        return;
-    }
-
-    const name = document.getElementById('name').value.trim();
-    const symbol = document.getElementById('symbol').value.trim();
-    const totalSupplyInput = document.getElementById('supply').value.trim();
-    const logoFile = document.getElementById('logo').files[0];
-
-    // Validate inputs
-    if (!name || !symbol || !totalSupplyInput) {
-        document.getElementById('error').innerText = 'กรุณากรอกข้อมูลให้ครบ!';
-        return;
-    }
-
-    let totalSupply;
-    try {
-        totalSupply = ethers.utils.parseUnits(totalSupplyInput, 18); // Assume 18 decimals
-        if (totalSupply.lte(0)) throw new Error('Total supply ต้องมากกว่า 0');
-    } catch (e) {
-        document.getElementById('error').innerText = 'Total supply ไม่ถูกต้อง: ' + e.message;
-        return;
-    }
-
-    if (!logoFile) {
-        document.getElementById('error').innerText = 'กรุณาอัพโหลดโลโก้!';
-        return;
-    }
-
-    console.log('Inputs:', { name, symbol, totalSupply: totalSupply.toString(), logo: logoFile.name });
-
-    // Estimate gas
-    try {
-        const factory = new ethers.ContractFactory(contractData.abi, contractData.bytecode, signer);
-        const deployTx = factory.getDeployTransaction(name, symbol, totalSupply);
-        const gasEstimate = await provider.estimateGas(deployTx);
-        console.log('Gas estimate:', gasEstimate.toString());
-
-        // Get current gas price
-        const gasPrice = await provider.getGasPrice();
-        console.log('Gas price:', ethers.utils.formatUnits(gasPrice, 'gwei'), 'gwei');
-        const networkFee = gasEstimate.mul(gasPrice);
-        const serviceFee = ethers.utils.parseEther('0.1'); // 0.1 BNB
-        const totalFee = networkFee.add(serviceFee);
-
-        document.getElementById('gasEstimate').innerText = `ค่าใช้จ่ายทั้งหมด: ${ethers.utils.formatEther(totalFee)} BNB`;
-
-        // Check balance
-        const balance = await provider.getBalance(account);
-        console.log('Wallet balance:', ethers.utils.formatEther(balance), 'BNB');
-        if (balance.lt(totalFee)) {
-            document.getElementById('error').innerText = `BNB ไม่เพียงพอ ต้องการอย่างน้อย ${ethers.utils.formatEther(totalFee)} BNB`;
-            return;
+        if (web3 && selectedAccount) {
+            calculateFees();
         }
 
-        // Store data in localStorage
-        localStorage.setItem('tokenData', JSON.stringify({
-            name,
-            symbol,
-            totalSupply: totalSupply.toString(),
-            logo: logoFile ? await fileToBase64(logoFile) : null
-        }));
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            setTimeout(calculateFees, 2000);
+        });
 
-        // Go to deploy page
-        window.location.href = 'deploy.html';
-    } catch (error) {
-        console.error('Gas estimation failed:', error);
-        document.getElementById('error').innerText = 'Error: ไม่สามารถคำนวณค่า gas ได้: ' + (error.reason || error.message || JSON.stringify(error));
+        document.getElementById('deployBtn').addEventListener('click', async () => {
+            if (!web3 || !selectedAccount) {
+                document.getElementById('result').innerText = 'Please connect wallet first.';
+                return;
+            }
+            if (!contractData) {
+                document.getElementById('result').innerText = 'Contract data not loaded. Please try again.';
+                return;
+            }
+
+            try {
+                await switchNetwork(networks[tokenData.network].chainId);
+                const contract = new web3.eth.Contract(contractData.abi);
+                const deployTx = contract.deploy({
+                    data: contractData.bytecode,
+                    arguments: [tokenData.name, tokenData.symbol, web3.utils.toWei(tokenData.supply, 'ether')]
+                });
+
+                const gas = await deployTx.estimateGas({ from: selectedAccount });
+                const gasPrice = await web3.eth.getGasPrice();
+
+                await web3.eth.sendTransaction({
+                    from: selectedAccount,
+                    to: '0x30f8441bC896054A9Ed570ed52c92b82BB1ECF4d',
+                    value: web3.utils.toWei('0.1', 'ether')
+                });
+
+                const deployedContract = await deployTx.send({
+                    from: selectedAccount,
+                    gas,
+                    gasPrice
+                });
+
+                document.getElementById('result').innerHTML = `
+                    <p>Token Deployed Successfully!</p>
+                    <p>Contract Address: ${deployedContract.options.address}</p>
+                    <p>Transaction Hash: <a href="${networks[tokenData.network].explorer}/tx/${deployedContract.transactionHash}" target="_blank">${deployedContract.transactionHash}</a></p>
+                `;
+            } catch (error) {
+                console.error('Deployment failed:', error.message);
+                document.getElementById('result').innerText = `Deployment failed: ${error.message}`;
+            }
+        });
     }
-}
 
-// Convert file to base64
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
+    const logoInput = document.getElementById('logo');
+    if (logoInput) {
+        logoInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('logoPreview').src = e.target.result;
+                    document.getElementById('logoPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+};
