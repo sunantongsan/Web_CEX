@@ -32,7 +32,7 @@ fetch('contract.json')
     })
     .catch(error => {
         console.error('Failed to load contract.json:', error);
-        document.getElementById('result').innerText = 'Error: Failed to load contract data. Please refresh or check console.';
+        document.getElementById('result').innerText = 'Error: Failed to load contract data. Please check console or refresh.';
     });
 
 // Connect wallet
@@ -43,7 +43,7 @@ async function connectWallet() {
         }
         const Web3Modal = window.Web3Modal;
         const web3Modal = new Web3Modal({
-            cacheProvider: false, // Disable cache to avoid third-party cookie issues
+            cacheProvider: false, // Disable cache to avoid cookie issues
             providerOptions: {
                 walletconnect: {
                     package: window.WalletConnectProvider,
