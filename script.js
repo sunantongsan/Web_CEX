@@ -1,386 +1,145 @@
-// Network configurations
-const networks = {
-    testnet: {
-        chainId: '0x61',
-        rpc: 'https://bsc-testnet-rpc.publicnode.com',
-        name: 'Binance Smart Chain Testnet',
-        explorer: 'https://testnet.bscscan.com'
-    },
-    mainnet: {
-        chainId: '0x38',
-        rpc: 'https://bsc-dataseed.binance.org/',
-        name: 'Binance Smart Chain Mainnet',
-        explorer: 'https://bscscan.com'
-    }
-};
-
-// Initialize Web3
 let web3;
-let provider;
-let selectedAccount;
-let contractData;
+let contractData = {};
 
-// Load contract ABI and Bytecode
-console.log('Loading script.js...');
-fetch('contract.json')
-    .then(response => {
-        if (!response.ok) {
-            console.error('Fetch contract.json failed with status:', response.status);
-            throw new Error('Failed to fetch contract.json');
-        }
-        return response.json();
-    })
-    .then(data => {
-        contractData = data;
-        console.log('Contract data loaded successfully');
-    })
-    .catch(error => {
-        console.error('Failed to load contract.json:', error);
-        document.getElementById('result').innerText = 'Error: Failed to load contract data. Check console for details.';
-    });
-
-// Connect MetaMask
-async function connectWallet() {
+// โหลด contract1.json และ contract2.json
+async function loadContractData() {
     try {
-        console.log('Connecting to MetaMask...');
-        if (!window.ethereum) {
-            throw new Error('MetaMask not detected. Please install MetaMask from https://metamask.io.');
-        }
-        if (!window.ethereum.isMetaMask) {
-            throw new Error('Detected wallet is not MetaMask. Please use MetaMask.');
-        }
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length === 0) {
-            console.log('MetaMask is locked or no accounts found. Requesting access...');
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-        }
-        web3 = new Web3(window.ethereum);
-        provider = window.ethereum;
-        const newAccounts = await web3.eth.getAccounts();
-        if (newAccounts.length === 0) {
-            throw new Error('No active wallet found. Please unlock MetaMask or add an account.');
-        }
-        selectedAccount = newAccounts[0];
-        localStorage.setItem('selectedAccount', selectedAccount);
-        document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
-        document.getElementById('connectBtn').innerText = 'Wallet Connected';
-        document.getElementById('connectBtn').disabled = true;
-        console.log('MetaMask connected:', selectedAccount);
+        const abiResponse = await fetch('contract1.json');
+        const bytecodeResponse = await fetch('contract2.json');
+        contractData.abi = await abiResponse.json();
+        contractData.bytecode = (await bytecodeResponse.json()).bytecode;
+        console.log("Contract data loaded successfully");
     } catch (error) {
-        console.error('Connection failed:', error.message);
-        document.getElementById('result').innerText = `Connection failed: ${error.message}`;
+        console.error("Failed to load contract data:", error);
     }
 }
 
-// Switch network
+// สลับ network
 async function switchNetwork(chainId) {
     try {
-        await provider.request({
+        await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId }]
+            params: [{ chainId }],
         });
-        console.log('Switched to chainId:', chainId);
-    } catch (switchError) {
-        if (switchError.code === 4902) {
-            const network = Object.values(networks).find(n => n.chainId === chainId);
-            await provider.request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                    chainId: network.chainId,
-                    chainName: network.name,
-                    rpcUrls: [network.rpc],
-                    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                    blockExplorerUrls: [network.explorer]
-                }]
-            });
-            console.log('Added network:', network.name);
-        } else {
-            console.error('Network switch failed:', switchError.message);
-            throw switchError;
-        }
+        console.log(`Switched to chainId: ${chainId}`);
+    } catch (error) {
+        console.error("Network switch failed:", error);
     }
 }
 
-// Initialize on page load
-window.onload = () => {
-    console.log('Window loaded');
-    const connectBtn = document.getElementById('connectBtn');
-    if (connectBtn) {
-        connectBtn.addEventListener('click', connectWallet);
-    } else {
-        console.error('Connect button not found');
-        document.getElementById('result').innerText = 'Error: Connect button not found';
-    }
+// คำนวณค่า Gas Fee
+async function calculateFees(params) {
+    console.log("Calculating fees with params:", params);
+    try {
+        const contract = new web3.eth.Contract(contractData.abi);
+        const deployData = contract.deploy({
+            data: contractData.bytecode,
+            arguments: [params.name, params.symbol, new web3.utils.BN(params.supply)]
+        }).encodeABI();
 
-    const networkSelect = document.getElementById('networkSelect');
-    if (networkSelect) {
-        networkSelect.addEventListener('change', async (event) => {
-            const selectedNetwork = event.target.value;
-            const chainId = networks[selectedNetwork].chainId;
-            if (web3 && selectedAccount) {
-                try {
-                    await switchNetwork(chainId);
-                } catch (error) {
-                    console.error('Network switch failed:', error.message);
-                    document.getElementById('result').innerText = `Failed to switch network: ${error.message}`;
-                }
-            } else {
-                document.getElementById('result').innerText = 'Please connect wallet first.';
-            }
+        const gasPrice = new web3.utils.BN(await web3.eth.getGasPrice());
+        const gasEstimate = new web3.utils.BN(await web3.eth.estimateGas({
+            data: deployData
+        }));
+        const totalFee = gasPrice.mul(gasEstimate);
+
+        console.log(`Gas Price: ${gasPrice.toString()}`);
+        console.log(`Gas Estimate: ${gasEstimate.toString()}`);
+        console.log(`Total Fee: ${totalFee.toString()} wei`);
+
+        document.getElementById('fee').innerText = `${web3.utils.fromWei(totalFee, 'ether')} BNB`;
+    } catch (error) {
+        console.error("Fee calculation failed:", error);
+        document.getElementById('fee').innerText = "Failed to calculate fee";
+    }
+}
+
+// Deploy contract
+async function deployContract(params) {
+    console.log("Deploying contract with params:", params);
+    try {
+        const accounts = await web3.eth.getAccounts();
+        const contract = new web3.eth.Contract(contractData.abi);
+
+        const deployTx = contract.deploy({
+            data: contractData.bytecode,
+            arguments: [params.name, params.symbol, new web3.utils.BN(params.supply)]
         });
-    }
 
+        const gasPrice = new web3.utils.BN(await web3.eth.getGasPrice());
+        const gasEstimate = new web3.utils.BN(await deployTx.estimateGas());
+
+        const deployedContract = await deployTx.send({
+            from: accounts[0],
+            gas: gasEstimate.toString(),
+            gasPrice: gasPrice.toString()
+        });
+
+        console.log("Contract deployed at:", deployedContract.options.address);
+        document.getElementById('result').innerText = `Contract deployed at: ${deployContract.options.address}`;
+    } catch (error) {
+        console.error("Deployment failed:", error);
+        document.getElementById('result').innerText = "Deployment failed";
+    }
+}
+
+// ฟังก์ชันสำหรับ index.html
+async function saveTokenData() {
+    const tokenData = {
+        name: document.getElementById('tokenName').value,
+        symbol: document.getElementById('tokenSymbol').value,
+        supply: document.getElementById('tokenSupply').value,
+        logo: document.getElementById('tokenLogo').files[0] ? await readFileAsDataURL(document.getElementById('tokenLogo').files[0]) : '',
+        network: document.getElementById('network').value
+    };
+    localStorage.setItem('tokenData', JSON.stringify(tokenData));
+    window.location.href = 'deploy.html';
+}
+
+// อ่านไฟล์เป็น Data URL
+function readFileAsDataURL(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+}
+
+// เริ่มต้นหน้าเว็บ
+window.onload = async () => {
+    console.log("Window loaded");
     if (window.ethereum) {
-        window.ethereum.on('accountsChanged', (accounts) => {
-            if (accounts.length > 0) {
-                selectedAccount = accounts[0];
-                localStorage.setItem('selectedAccount', selectedAccount);
-                document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
-                document.getElementById('connectBtn').innerText = 'Wallet Connected';
-                document.getElementById('connectBtn').disabled = true;
-                console.log('Accounts changed:', selectedAccount);
-            } else {
-                selectedAccount = null;
-                localStorage.removeItem('selectedAccount');
-                document.getElementById('account').innerText = 'Wallet disconnected';
-                document.getElementById('connectBtn').innerText = 'Connect MetaMask';
-                document.getElementById('connectBtn').disabled = false;
-                console.log('Wallet disconnected');
-            }
-        });
-
-        window.ethereum.on('chainChanged', () => {
-            window.location.reload();
-            console.log('Chain changed, reloading...');
-        });
-    }
-
-    const tokenForm = document.getElementById('tokenForm');
-    if (tokenForm) {
-        tokenForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const name = document.getElementById('name').value;
-            const symbol = document.getElementById('symbol').value;
-            const supply = document.getElementById('supply').value;
-            const logo = document.getElementById('logo').files[0];
-            const network = document.getElementById('networkSelect').value;
-            const enableBurn = document.getElementById('enableBurn').checked;
-            const renounceOwnership = document.getElementById('renounceOwnership').checked;
-
-            if (!name || !symbol || !supply || !logo) {
-                document.getElementById('result').innerText = 'Please fill all fields and upload a logo.';
-                return;
-            }
-
-            if (logo.size > 100000) {
-                document.getElementById('result').innerText = 'Logo must be less than 100KB.';
-                return;
-            }
-
-            if (parseFloat(supply) <= 0) {
-                document.getElementById('result').innerText = 'Total Supply must be greater than 0.';
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = () => {
-                localStorage.setItem('tokenData', JSON.stringify({
-                    name,
-                    symbol,
-                    supply,
-                    logo: reader.result,
-                    network,
-                    enableBurn,
-                    renounceOwnership
-                }));
-                window.location.href = 'deploy.html';
-                console.log('Form submitted, redirecting to deploy.html');
-            };
-            reader.readAsDataURL(logo);
-        });
-    }
-
-    if (window.location.pathname.includes('deploy.html')) {
-        const tokenData = JSON.parse(localStorage.getItem('tokenData'));
-        if (!tokenData) {
-            window.location.href = 'index.html';
-            console.log('No token data, redirecting to index.html');
-            return;
-        }
-
-        selectedAccount = localStorage.getItem('selectedAccount');
-        if (selectedAccount) {
-            document.getElementById('account').innerText = `Connected: ${selectedAccount}`;
-            document.getElementById('connectBtn').innerText = 'Wallet Connected';
-            document.getElementById('connectBtn').disabled = true;
-            console.log('Using saved account:', selectedAccount);
-        }
-
-        if (!web3 && window.ethereum) {
-            web3 = new Web3(window.ethereum);
-            provider = window.ethereum;
-            console.log('Initialized Web3 in deploy.html');
-        }
-
-        document.getElementById('tokenName').innerText = tokenData.name;
-        document.getElementById('tokenSymbol').innerText = tokenData.symbol;
-        document.getElementById('tokenSupply').innerText = tokenData.supply;
-        document.getElementById('tokenNetwork').innerText = networks[tokenData.network].name;
-        document.getElementById('tokenBurn').innerText = tokenData.enableBurn ? 'Enabled' : 'Disabled';
-        document.getElementById('tokenRenounce').innerText = tokenData.renounceOwnership ? 'Yes' : 'No';
-        document.getElementById('tokenLogo').src = tokenData.logo;
-        console.log('Token data loaded in deploy.html:', tokenData);
-
-        async function calculateFees() {
-            if (!web3 || !selectedAccount) {
-                document.getElementById('gasFee').innerText = 'Please connect wallet';
-                document.getElementById('totalFee').innerText = 'Please connect wallet';
-                document.getElementById('burnFee').innerText = 'Please connect wallet';
-                document.getElementById('renounceFee').innerText = 'Please connect wallet';
-                console.log('Cannot calculate fees: Wallet not connected');
-                return;
-            }
-            if (!contractData) {
-                document.getElementById('gasFee').innerText = 'Contract data not loaded';
-                document.getElementById('totalFee').innerText = 'Contract data not loaded';
-                document.getElementById('burnFee').innerText = 'Contract data not loaded';
-                document.getElementById('renounceFee').innerText = 'Contract data not loaded';
-                console.log('Cannot calculate fees: Contract data not loaded');
-                return;
-            }
-            try {
-                console.log('Calculating fees with params:', {
-                    name: tokenData.name,
-                    symbol: tokenData.symbol,
-                    supply: tokenData.supply
-                });
-                await switchNetwork(networks[tokenData.network].chainId);
-                const contract = new web3.eth.Contract(contractData.abi);
-                const deployTx = contract.deploy({
-                    data: contractData.bytecode,
-                    arguments: [
-                        tokenData.name,
-                        tokenData.symbol,
-                        web3.utils.toBN(web3.utils.toWei(tokenData.supply, 'ether'))
-                    ]
-                });
-
-                const gas = await deployTx.estimateGas({ from: selectedAccount });
-                const gasPrice = await web3.eth.getGasPrice();
-                const gasFee = web3.utils.fromWei((gas * gasPrice).toString(), 'ether');
-                const serviceFee = 0.1;
-                const burnFee = tokenData.enableBurn ? 0.03 : 0;
-                const renounceFee = tokenData.renounceOwnership ? 0.03 : 0;
-                const totalFee = (parseFloat(gasFee) + serviceFee + burnFee + renounceFee).toFixed(6);
-
-                document.getElementById('gasFee').innerText = `${gasFee} BNB`;
-                document.getElementById('burnFee').innerText = `${burnFee} BNB`;
-                document.getElementById('renounceFee').innerText = `${renounceFee} BNB`;
-                document.getElementById('totalFee').innerText = `${totalFee} BNB`;
-                console.log('Fees calculated:', { gasFee, burnFee, renounceFee, totalFee });
-            } catch (error) {
-                console.error('Fee calculation failed:', error);
-                document.getElementById('gasFee').innerText = 'Error calculating gas';
-                document.getElementById('totalFee').innerText = 'Error';
-                document.getElementById('burnFee').innerText = 'Error';
-                document.getElementById('renounceFee').innerText = 'Error';
-            }
-        }
-
-        if (web3 && selectedAccount) {
-            calculateFees();
-        }
-
-        document.getElementById('connectBtn').addEventListener('click', async () => {
-            await connectWallet();
-            if (selectedAccount) {
-                setTimeout(calculateFees, 2000);
-            }
-        });
-
-        document.getElementById('deployBtn').addEventListener('click', async () => {
-            if (!web3 || !selectedAccount) {
-                document.getElementById('result').innerText = 'Please connect wallet first.';
-                console.log('Deploy failed: Wallet not connected');
-                return;
-            }
-            if (!contractData) {
-                document.getElementById('result').innerText = 'Contract data not loaded. Please try again.';
-                console.log('Deploy failed: Contract data not loaded');
-                return;
-            }
-
-            try {
-                console.log('Deploying contract with params:', {
-                    name: tokenData.name,
-                    symbol: tokenData.symbol,
-                    supply: tokenData.supply
-                });
-                await switchNetwork(networks[tokenData.network].chainId);
-                const contract = new web3.eth.Contract(contractData.abi);
-                const deployTx = contract.deploy({
-                    data: contractData.bytecode,
-                    arguments: [
-                        tokenData.name,
-                        tokenData.symbol,
-                        web3.utils.toBN(web3.utils.toWei(tokenData.supply, 'ether'))
-                    ]
-                });
-
-                const gas = await deployTx.estimateGas({ from: selectedAccount });
-                const gasPrice = await web3.eth.getGasPrice();
-
-                const feeToSend = (0.1 + (tokenData.enableBurn ? 0.03 : 0) + (tokenData.renounceOwnership ? 0.03 : 0)).toString();
-                console.log('Sending service fee:', feeToSend, 'BNB');
-                await web3.eth.sendTransaction({
-                    from: selectedAccount,
-                    to: '0x30f8441bC896054A9Ed570ed52c92b82BB1ECF4d',
-                    value: web3.utils.toWei(feeToSend, 'ether')
-                });
-                console.log('Service and additional fees sent');
-
-                const deployedContract = await deployTx.send({
-                    from: selectedAccount,
-                    gas,
-                    gasPrice
-                });
-                console.log('Contract deployed:', deployedContract.options.address);
-
-                if (tokenData.enableBurn) {
-                    console.log('Burn function enabled, no immediate action required');
-                }
-
-                if (tokenData.renounceOwnership) {
-                    const contractInstance = new web3.eth.Contract(contractData.abi, deployedContract.options.address);
-                    await contractInstance.methods.renounceOwnership().send({ from: selectedAccount });
-                    console.log('Ownership renounced');
-                }
-
-                document.getElementById('result').innerHTML = `
-                    <p>Token Deployed Successfully!</p>
-                    <p>Contract Address: ${deployedContract.options.address}</p>
-                    <p>Transaction Hash: <a href="${networks[tokenData.network].explorer}/tx/${deployedContract.transactionHash}" target="_blank">${deployedContract.transactionHash}</a></p>
-                `;
-            } catch (error) {
-                console.error('Deployment failed:', error);
-                document.getElementById('result').innerText = `Deployment failed: ${error.message}`;
-            }
-        });
-    }
-
-    const logoInput = document.getElementById('logo');
-    if (logoInput) {
-        logoInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    document.getElementById('logoPreview').src = e.target.result;
-                    document.getElementById('logoPreview').style.display = 'block';
-                    console.log('Logo preview loaded');
+        web3 = new Web3(window.ethereum);
+        console.log("Initialized Web3");
+        
+        // ถ้าเป็น deploy.html
+        if (window.location.pathname.includes('deploy.html')) {
+            await loadContractData();
+            const tokenData = JSON.parse(localStorage.getItem('tokenData'));
+            console.log("Token data loaded in deploy.html:", tokenData);
+            
+            // สลับไป BSC Testnet
+            await switchNetwork('0x61');
+            
+            // คำนวณ fee
+            await calculateFees(tokenData);
+            
+            // เมื่อกดปุ่ม Deploy
+            const deployButton = document.getElementById('deployButton');
+            if (deployButton) {
+                deployButton.onclick = async () => {
+                    await deployContract(tokenData);
                 };
-                reader.readAsDataURL(file);
             }
-        });
+        }
+        
+        // ถ้าเป็น index.html
+        const createButton = document.getElementById('createToken');
+        if (createButton) {
+            createButton.onclick = saveTokenData;
+        }
+    } else {
+        console.error("No Ethereum provider detected");
+        document.getElementById('result') && (document.getElementById('result').innerText = "Please install MetaMask");
     }
 };
